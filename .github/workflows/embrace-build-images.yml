@@ -1,0 +1,87 @@
+# Copyright Embrace
+# SPDX-License-Identifier: Apache-2.0
+#
+# Builds the Embrace-customized images on the `embrace-synthetics` branch
+# and pushes them to Docker Hub. Kept deliberately simple: an explicit list of
+# images, no change detection. Add more services by adding more build steps.
+name: Embrace - Build images
+
+on:
+  push:
+    branches: [embrace-synthetics]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Tag prefix for the produced images
+        type: string
+        required: false
+        default: synthetics
+  workflow_call:
+    inputs:
+      ref:
+        description: Git ref to build from (default embrace-synthetics)
+        type: string
+        required: false
+        default: embrace-synthetics
+      version:
+        description: Tag prefix for the produced images
+        type: string
+        required: false
+        default: synthetics
+
+permissions:
+  contents: read
+
+env:
+  # TODO confirm: the Docker Hub namespace/repo Embrace publishes to.
+  DOCKERHUB_REPO: embraceio/opentelemetry-demo
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
+      - name: Compute short SHA
+        id: sha
+        run: echo "short=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve version tag
+        id: ver
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: echo "version=${INPUT_VERSION:-synthetics}" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee  # v4.2.0
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@ce360397dd3f832beb865e1373c09c0e9f86d70a  # v4.0.0
+        with:
+          image: tonistiigi/binfmt:master
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5  # v4.1.0
+        with:
+          buildkitd-config-inline: |
+            [worker.oci]
+            max-parallelism = 2
+
+      - name: Build and push frontend
+        uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf  # v7.2.0
+        with:
+          context: ./
+          file: ./src/frontend/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ env.DOCKERHUB_REPO }}:${{ steps.ver.outputs.version }}-frontend
+            ${{ env.DOCKERHUB_REPO }}:${{ steps.ver.outputs.version }}-${{ steps.sha.outputs.short }}-frontend
+          cache-from: type=gha
+          cache-to: type=gha
