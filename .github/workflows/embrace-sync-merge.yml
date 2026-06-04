@@ -73,11 +73,7 @@ jobs:
                 "" \
                 "This branch (\`$1\`) contains only an **empty commit** so this PR can exist; it does **not** contain the upstream changes. Bring both branches up to date manually:" \
                 "" \
-                "1. Drop this empty commit (it carries no changes) — just close this PR, or:" \
-                "   \`\`\`" \
-                "   git push origin --delete $1" \
-                "   \`\`\`" \
-                "2. Update \`main\` from upstream:" \
+                "1. Update \`main\` from upstream:" \
                 "   \`\`\`" \
                 "   # configure the upstream remote if you don't have it yet" \
                 "   git remote add upstream https://github.com/open-telemetry/opentelemetry-demo.git" \
@@ -86,11 +82,15 @@ jobs:
                 "   git merge upstream/main      # resolve conflicts" \
                 "   git push origin main" \
                 "   \`\`\`" \
-                "3. Update \`embrace\` from \`main\`:" \
+                "2. Update \`embrace\` from \`main\`:" \
                 "   \`\`\`" \
                 "   git checkout embrace" \
                 "   git merge main               # resolve conflicts" \
                 "   git push origin embrace" \
+                "   \`\`\`" \
+                "3. Drop this empty commit (it carries no changes) — just close this PR, or:" \
+                "   \`\`\`" \
+                "   git push origin --delete $1" \
                 "   \`\`\`" \
                 "" \
                 "Workflow run: ${RUN_URL}"
