@@ -56,6 +56,7 @@ jobs:
         run: |
           set -euo pipefail
 
+          echo "==> Fetching upstream/main and origin main + embrace..."
           git remote add upstream https://github.com/open-telemetry/opentelemetry-demo.git 2>/dev/null \
             || git remote set-url upstream https://github.com/open-telemetry/opentelemetry-demo.git
           git fetch upstream main
@@ -117,6 +118,7 @@ jobs:
           }
 
           # ----- 1) upstream/main -> main -----
+          echo "==> Step 1/2: syncing upstream/main into main"
           if git merge-base --is-ancestor upstream/main origin/main; then
             echo "main already up to date with upstream."
           else
@@ -143,6 +145,7 @@ jobs:
           fi
 
           # ----- 2) main -> embrace -----
+          echo "==> Step 2/2: merging main into embrace"
           git fetch origin main
           if git merge-base --is-ancestor origin/main origin/embrace; then
             echo "embrace already contains main; nothing to do."
