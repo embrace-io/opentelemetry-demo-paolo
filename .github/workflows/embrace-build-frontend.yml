@@ -1,7 +1,8 @@
 # Copyright Embrace
 # SPDX-License-Identifier: Apache-2.0
 #
-# Builds the Embrace-customized frontend image and pushes it to Docker Hub.
+# Builds the Embrace-customized frontend image and pushes it to the GitHub
+# Container Registry (ghcr.io/<owner>/<repo>), scoped to this repo's Packages.
 # Build behavior mirrors Embrace's ci-python/ci-golang "merge to master" path
 # (here master == `embrace`):
 #   - version on embrace: embrace-<date>-<sha>; otherwise branch-<ref>
@@ -20,7 +21,7 @@ on:
   workflow_dispatch:
 
 env:
-  DOCKERHUB_REPO: embraceio/opentelemetry-demo
+  IMAGE_REPO: ghcr.io/${{ github.repository }}
   COMPONENT: frontend
 
 jobs:
@@ -28,6 +29,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      packages: write
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
         with:
@@ -50,16 +52,17 @@ jobs:
             echo "Version tag: ${version}-${COMPONENT}"
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Log in to Docker Hub
+      - name: Log in to GitHub Container Registry
         uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee  # v4.2.0
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Check if this commit was already built
         id: exists
         run: |
-          sha_tag="${DOCKERHUB_REPO}:${{ steps.version.outputs.sha_version }}-${COMPONENT}"
+          sha_tag="${IMAGE_REPO}:${{ steps.version.outputs.sha_version }}-${COMPONENT}"
           if docker manifest inspect "$sha_tag" > /dev/null 2>&1; then
             echo 'exists=true' | tee -a "$GITHUB_OUTPUT"
           else
@@ -70,8 +73,8 @@ jobs:
         if: ${{ steps.exists.outputs.exists == 'true' }}
         run: |
           docker buildx imagetools create \
-            "${DOCKERHUB_REPO}:${{ steps.version.outputs.sha_version }}-${COMPONENT}" \
-            --tag "${DOCKERHUB_REPO}:${{ steps.version.outputs.version }}-${COMPONENT}"
+            "${IMAGE_REPO}:${{ steps.version.outputs.sha_version }}-${COMPONENT}" \
+            --tag "${IMAGE_REPO}:${{ steps.version.outputs.version }}-${COMPONENT}"
 
       - name: Set up QEMU
         if: ${{ steps.exists.outputs.exists != 'true' }}
@@ -96,8 +99,8 @@ jobs:
           provenance: mode=max
           sbom: true
           tags: |
-            ${{ env.DOCKERHUB_REPO }}:${{ steps.version.outputs.version }}-${{ env.COMPONENT }}
-            ${{ env.DOCKERHUB_REPO }}:${{ steps.version.outputs.sha_version }}-${{ env.COMPONENT }}
+            ${{ env.IMAGE_REPO }}:${{ steps.version.outputs.version }}-${{ env.COMPONENT }}
+            ${{ env.IMAGE_REPO }}:${{ steps.version.outputs.sha_version }}-${{ env.COMPONENT }}
           labels: |
             org.opencontainers.image.authors=@${{ github.actor }}
             org.opencontainers.image.description=Built by ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -112,8 +115,8 @@ jobs:
         if: ${{ github.ref == 'refs/heads/embrace' && steps.exists.outputs.exists != 'true' }}
         run: |
           docker buildx imagetools create \
-            "${DOCKERHUB_REPO}:${{ steps.version.outputs.sha_version }}-${COMPONENT}" \
-            --tag "${DOCKERHUB_REPO}:latest-${COMPONENT}"
+            "${IMAGE_REPO}:${{ steps.version.outputs.sha_version }}-${COMPONENT}" \
+            --tag "${IMAGE_REPO}:latest-${COMPONENT}"
 
   draft-release:
     needs: build
